@@ -16,8 +16,6 @@ I'm using webpack@5.99.7
 - In `./src/main.js`, call `doAThing()` to show it works
 - In `./src/main.js` create `new Worker(new URL("./src/dependencyWorker.js", import.meta.url))`.
 
-Or, if you please, see how to use my repo at the bottom.
-
 ### Expected
 
 - `doAThing()` is called and completes.
@@ -27,6 +25,133 @@ Or, if you please, see how to use my repo at the bottom.
 
 - `doAThing()` is called and completes.
 - `dependencyWorker` cannot import `dependency.js`, because `UnhandledPromiseRejectionWarning: Error: Cannot find module './dependency'`
+
+### Repro Using My Minimal Example
+
+- Checkout https://github.com/TheNextGuy32/electron-forge-webpack-worker
+- npm install
+- npm start
+
+```
+src/
+    main.js
+    dependencyWorker.js
+    dependency.js
+
+forge.config.js
+webpack.rules.js
+```
+
+[main.js](https://github.com/TheNextGuy32/electron-forge-webpack-worker/blob/master/src/main.js)
+```js
+const { app } = require('electron');
+const { Worker } = require('worker_threads');
+const { doAThing } = require('./dependency');
+
+const createDependencyWorker = () => {
+  return new Promise((resolve, reject) => {
+    try {
+      const workerData = {};
+      const worker = new Worker(new URL(`./dependencyWorker.js`, import.meta.url), {
+        workerData
+      });
+
+      // ...
+  });
+}
+
+app.whenReady().then(async () => {
+  await doAThing("main");
+  await createDependencyWorker();
+  app.quit();
+});
+```
+
+[dependencyWorker.js](https://github.com/TheNextGuy32/electron-forge-webpack-worker/blob/master/src/dependencyWorker.js)
+```js
+const dependencyPath = './dependency';
+const { doAThing } = require(dependencyPath);
+
+doAThing("dependencyWorker");
+```
+
+[dependency.js](https://github.com/TheNextGuy32/electron-forge-webpack-worker/blob/master/src/dependency.js)
+```js
+const doAThing = async (source) => {
+    console.log(`do a thing using ${source}`);
+}
+module.exports = { doAThing };
+```
+
+[webpack.rules.js](https://github.com/TheNextGuy32/electron-forge-webpack-worker/blob/master/webpack.rules.js)
+```js
+{
+    test: /native_modules[/\\].+\.node$/,
+    use: 'node-loader',
+},
+{
+    test: /[/\\]node_modules[/\\].+\.(m?js|node)$/,
+    parser: { amd: false },
+    use: {
+        loader: '@vercel/webpack-asset-relocator-loader',
+        options: {
+        outputAssetBase: 'native_modules',
+        },
+    }
+}
+```
+
+#### Result
+
+It can find the worker code, but the worker cannot find the dependency.
+```
+$ npm start
+
+> forge-webpack-webworkers@1.0.0 start
+> electron-forge start
+✔ Checking your system
+✔ Locating application
+✔ Loading configuration
+✔ Preparing native dependencies [0.5s]
+✔ Running generateAssets hook
+✔ Running preStart hook
+
+do a thing using main
+
+Worker error: Error: Cannot find module './dependency'
+Require stack:
+- C:\Users\User\Documents\git\forge-webpack-webworkers\.webpack\main\ae1f6aa1d5e2f5623b44.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1232:15)
+    at Module._load (node:internal/modules/cjs/loader:1062:27)
+    at c._load (node:electron/js2c/node_init:2:17950)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:227:24)
+    at Module.require (node:internal/modules/cjs/loader:1318:12)
+    at require (node:internal/modules/helpers:136:16)
+    at Object.<anonymous> (C:\Users\User\Documents\git\forge-webpack-webworkers\.webpack\main\ae1f6aa1d5e2f5623b44.js:2:22)
+    at Module._compile (node:internal/modules/cjs/loader:1562:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1715:10) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'C:\\Users\\User\\Documents\\git\\forge-webpack-webworkers\\.webpack\\main\\ae1f6aa1d5e2f5623b44.js'
+  ]
+}
+(node:34828) UnhandledPromiseRejectionWarning: Error: Cannot find module './dependency'
+Require stack:
+- C:\Users\User\Documents\git\forge-webpack-webworkers\.webpack\main\ae1f6aa1d5e2f5623b44.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1232:15)
+    at Module._load (node:internal/modules/cjs/loader:1062:27)
+    at c._load (node:electron/js2c/node_init:2:17950)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:227:24)
+    at Module.require (node:internal/modules/cjs/loader:1318:12)
+    at require (node:internal/modules/helpers:136:16)
+    at Object.<anonymous> (C:\Users\User\Documents\git\forge-webpack-webworkers\.webpack\main\ae1f6aa1d5e2f5623b44.js:2:22)
+    at Module._compile (node:internal/modules/cjs/loader:1562:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1715:10)
+(Use `electron --trace-warnings ...` to show where the warning was created)
+(node:34828) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). To terminate the node process on unhandled promise rejection, use the CLI flag `--unhandled-rejections=strict` (see https://nodejs.org/api/cli.html#cli_unhandled_rejections_mode). (rejection id: 1)
+```
 
 #### What does webpack create?
 
@@ -212,134 +337,6 @@ module.exports = __webpack_exports__;
 /******/ })()
 ;
 //# sourceMappingURL=index.js.map
-```
-
-
-### Repro Using My Minimal Example
-
-- Checkout https://github.com/TheNextGuy32/electron-forge-webpack-worker
-- npm install
-- npm start
-
-```
-src/
-    main.js
-    dependencyWorker.js
-    dependency.js
-
-forge.config.js
-webpack.rules.js
-```
-
-[main.js](https://github.com/TheNextGuy32/electron-forge-webpack-worker/blob/master/src/main.js)
-```js
-const { app } = require('electron');
-const { Worker } = require('worker_threads');
-const { doAThing } = require('./dependency');
-
-const createDependencyWorker = () => {
-  return new Promise((resolve, reject) => {
-    try {
-      const workerData = {};
-      const worker = new Worker(new URL(`./dependencyWorker.js`, import.meta.url), {
-        workerData
-      });
-
-      // ...
-  });
-}
-
-app.whenReady().then(async () => {
-  await doAThing("main");
-  await createDependencyWorker();
-  app.quit();
-});
-```
-
-[dependencyWorker.js](https://github.com/TheNextGuy32/electron-forge-webpack-worker/blob/master/src/dependencyWorker.js)
-```js
-const dependencyPath = './dependency';
-const { doAThing } = require(dependencyPath);
-
-doAThing("dependencyWorker");
-```
-
-[dependency.js](https://github.com/TheNextGuy32/electron-forge-webpack-worker/blob/master/src/dependency.js)
-```js
-const doAThing = async (source) => {
-    console.log(`do a thing using ${source}`);
-}
-module.exports = { doAThing };
-```
-
-[webpack.rules.js](https://github.com/TheNextGuy32/electron-forge-webpack-worker/blob/master/webpack.rules.js)
-```js
-{
-    test: /native_modules[/\\].+\.node$/,
-    use: 'node-loader',
-},
-{
-    test: /[/\\]node_modules[/\\].+\.(m?js|node)$/,
-    parser: { amd: false },
-    use: {
-        loader: '@vercel/webpack-asset-relocator-loader',
-        options: {
-        outputAssetBase: 'native_modules',
-        },
-    }
-}
-```
-
-#### Result
-
-It can find the worker code, but the worker cannot find the dependency.
-```
-$ npm start
-
-> forge-webpack-webworkers@1.0.0 start
-> electron-forge start
-✔ Checking your system
-✔ Locating application
-✔ Loading configuration
-✔ Preparing native dependencies [0.5s]
-✔ Running generateAssets hook
-✔ Running preStart hook
-
-do a thing using main
-
-Worker error: Error: Cannot find module './dependency'
-Require stack:
-- C:\Users\User\Documents\git\forge-webpack-webworkers\.webpack\main\ae1f6aa1d5e2f5623b44.js
-    at Module._resolveFilename (node:internal/modules/cjs/loader:1232:15)
-    at Module._load (node:internal/modules/cjs/loader:1062:27)
-    at c._load (node:electron/js2c/node_init:2:17950)
-    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
-    at wrapModuleLoad (node:internal/modules/cjs/loader:227:24)
-    at Module.require (node:internal/modules/cjs/loader:1318:12)
-    at require (node:internal/modules/helpers:136:16)
-    at Object.<anonymous> (C:\Users\User\Documents\git\forge-webpack-webworkers\.webpack\main\ae1f6aa1d5e2f5623b44.js:2:22)
-    at Module._compile (node:internal/modules/cjs/loader:1562:14)
-    at Module._extensions..js (node:internal/modules/cjs/loader:1715:10) {
-  code: 'MODULE_NOT_FOUND',
-  requireStack: [
-    'C:\\Users\\User\\Documents\\git\\forge-webpack-webworkers\\.webpack\\main\\ae1f6aa1d5e2f5623b44.js'
-  ]
-}
-(node:34828) UnhandledPromiseRejectionWarning: Error: Cannot find module './dependency'
-Require stack:
-- C:\Users\User\Documents\git\forge-webpack-webworkers\.webpack\main\ae1f6aa1d5e2f5623b44.js
-    at Module._resolveFilename (node:internal/modules/cjs/loader:1232:15)
-    at Module._load (node:internal/modules/cjs/loader:1062:27)
-    at c._load (node:electron/js2c/node_init:2:17950)
-    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
-    at wrapModuleLoad (node:internal/modules/cjs/loader:227:24)
-    at Module.require (node:internal/modules/cjs/loader:1318:12)
-    at require (node:internal/modules/helpers:136:16)
-    at Object.<anonymous> (C:\Users\User\Documents\git\forge-webpack-webworkers\.webpack\main\ae1f6aa1d5e2f5623b44.js:2:22)
-    at Module._compile (node:internal/modules/cjs/loader:1562:14)
-    at Module._extensions..js (node:internal/modules/cjs/loader:1715:10)
-(Use `electron --trace-warnings ...` to show where the warning was created)
-(node:34828) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). To terminate the node process on unhandled promise rejection, use the CLI flag `--unhandled-rejections=strict` (see https://nodejs.org/api/cli.html#cli_unhandled_rejections_mode). (rejection id: 1)
 ```
 
 ## Context 
