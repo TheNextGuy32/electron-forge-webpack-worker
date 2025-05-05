@@ -6,6 +6,8 @@ We'd want to do this to do heavy computation without blocking the main thread, a
 
 The ideal situation is that I can create a worker and have it use my existing js main process code base.
 
+I'm using webpack@5.99.7
+
 ## Repro
 
 - `npx create-electron-app@latest my-app --template=webpack`
