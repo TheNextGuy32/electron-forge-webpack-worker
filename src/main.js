@@ -1,11 +1,15 @@
 const { app } = require('electron');
 const { Worker } = require('worker_threads');
 const { doAThing } = require('./dependency');
+const path = require('path');
 
 const createDependencyWorker = () => {
   return new Promise((resolve, reject) => {
     try {
-      const worker = new Worker(new URL(`./dependencyWorker.js`, import.meta.url));
+      // Use the compiled worker file from the webpack output directory
+      const workerPath = path.join(__dirname, 'dependencyWorker.bundle.js');
+      console.log(`Loading worker from: ${workerPath}`);
+      const worker = new Worker(workerPath);
 
       worker.on('message', (message) => {
         if (message.success !== undefined) {

@@ -10093,17 +10093,6 @@ module.exports = require("child_process");
 
 /***/ }),
 
-/***/ "electron":
-/*!***************************!*\
-  !*** external "electron" ***!
-  \***************************/
-/***/ ((module) => {
-
-"use strict";
-module.exports = require("electron");
-
-/***/ }),
-
 /***/ "fs":
 /*!*********************!*\
   !*** external "fs" ***!
@@ -10201,17 +10190,6 @@ module.exports = require("node:util");
 "use strict";
 module.exports = require("path");
 
-/***/ }),
-
-/***/ "worker_threads":
-/*!*********************************!*\
-  !*** external "worker_threads" ***!
-  \*********************************/
-/***/ ((module) => {
-
-"use strict";
-module.exports = require("worker_threads");
-
 /***/ })
 
 /******/ 	});
@@ -10249,60 +10227,17 @@ module.exports = require("worker_threads");
 var __webpack_exports__ = {};
 // This entry needs to be wrapped in an IIFE because it needs to be isolated against other modules in the chunk.
 (() => {
-/*!*********************!*\
-  !*** ./src/main.js ***!
-  \*********************/
-const { app } = __webpack_require__(/*! electron */ "electron");
-const { Worker } = __webpack_require__(/*! worker_threads */ "worker_threads");
+/*!*********************************!*\
+  !*** ./src/dependencyWorker.js ***!
+  \*********************************/
 const { doAThing } = __webpack_require__(/*! ./dependency */ "./src/dependency.js");
-const path = __webpack_require__(/*! path */ "path");
 
-const createDependencyWorker = () => {
-  return new Promise((resolve, reject) => {
-    try {
-      // Use the compiled worker file from the webpack output directory
-      const workerPath = path.join(__dirname, 'dependencyWorker.bundle.js');
-      console.log(`Loading worker from: ${workerPath}`);
-      const worker = new Worker(workerPath);
+doAThing("dependencyWorker");
+  
 
-      worker.on('message', (message) => {
-        if (message.success !== undefined) {
-          if (message.success) {            
-            resolve(message.data);
-          } else {
-            reject(new Error(message.error));
-          }
-        } else if (message.type === 'log') {
-          console.log(message.log);
-        }
-      });
-
-      worker.on('error', (err) => {
-        console.error('Worker error:', err);
-        reject(err);
-      });
-      
-      worker.on('exit', (code) => {
-        if (code !== 0) {
-          reject(new Error(`Worker stopped with exit code ${code}`));
-        }
-      });
-    } catch (err) {
-      console.error('Failed to create worker:', err);
-      reject(err);
-    }
-  });
-}
-
-app.whenReady().then(async () => {
-  // createWindow();
-  await doAThing("main");
-  await createDependencyWorker();
-  app.quit();
-});
 })();
 
 module.exports = __webpack_exports__;
 /******/ })()
 ;
-//# sourceMappingURL=index.js.map
+//# sourceMappingURL=dependencyWorker.bundle.js.map
