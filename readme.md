@@ -30,15 +30,16 @@ Or, if you please, see how to use my repo at the bottom.
 
 #### What does webpack create?
 
-It seems like I'm close to importing it correctly (.webpack is checked into the repo):
+It seems like I'm close to importing it correctly ([/.webpack](https://github.com/TheNextGuy32/electron-forge-webpack-worker/tree/master/.webpack) is checked into the repo):
 
-`.webpack/main/35fa76c16eadbd5d7b56.js`
+[.webpack/main/35fa76c16eadbd5d7b56.js](https://github.com/TheNextGuy32/electron-forge-webpack-worker/blob/master/.webpack/main/35fa76c16eadbd5d7b56.js) this is the workers code, if it's supposed to include `./dependency.js`, it doesn't. 
 ```js
 const { doAThing } = require('./dependency');
 
 doAThing("dependencyWorker");
 ```
-`.webpack/main/index.js`
+
+[.webpack/main/index.js](https://github.com/TheNextGuy32/electron-forge-webpack-worker/blob/master/.webpack/main/index.js) Im noticing it does not contain the worker code.
 ```js
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
@@ -225,9 +226,12 @@ src/
     main.js
     dependencyWorker.js
     dependency.js
+
+forge.config.js
+webpack.rules.js
 ```
 
-main.js
+[main.js](https://github.com/TheNextGuy32/electron-forge-webpack-worker/blob/master/src/main.js)
 ```js
 const { app } = require('electron');
 const { Worker } = require('worker_threads');
@@ -252,7 +256,7 @@ app.whenReady().then(async () => {
 });
 ```
 
-dependencyWorker.js
+[dependencyWorker.js](https://github.com/TheNextGuy32/electron-forge-webpack-worker/blob/master/src/dependencyWorker.js)
 ```js
 const dependencyPath = './dependency';
 const { doAThing } = require(dependencyPath);
@@ -260,7 +264,7 @@ const { doAThing } = require(dependencyPath);
 doAThing("dependencyWorker");
 ```
 
-dependency.js
+[dependency.js](https://github.com/TheNextGuy32/electron-forge-webpack-worker/blob/master/src/dependency.js)
 ```js
 const doAThing = async (source) => {
     console.log(`do a thing using ${source}`);
@@ -268,6 +272,27 @@ const doAThing = async (source) => {
 module.exports = { doAThing };
 ```
 
+[webpack.rules.js](https://github.com/TheNextGuy32/electron-forge-webpack-worker/blob/master/webpack.rules.js)
+```js
+{
+    test: /native_modules[/\\].+\.node$/,
+    use: 'node-loader',
+},
+{
+    test: /[/\\]node_modules[/\\].+\.(m?js|node)$/,
+    parser: { amd: false },
+    use: {
+        loader: '@vercel/webpack-asset-relocator-loader',
+        options: {
+        outputAssetBase: 'native_modules',
+        },
+    }
+}
+```
+
+#### Result
+
+It can find the worker code, but the worker cannot find the dependency.
 ```
 $ npm start
 
